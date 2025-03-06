@@ -1,0 +1,141 @@
+# useState
+
+Let's start our discussion by refreshing our memory on **Pass by Value vs Pass by Reference** in JavaScript.
+
+## **Pass by Value**
+
+Primitive values (`boolean`, `number`, `string`, `undefined`, `null`) are passed directly. In other words, the data is copied and assigned to another variable, making them independent.
+
+The reason is that these data types are small (64-bit) and stored in the **stack**, which is fast and efficient. Copying them has **negligible memory/performance cost**. So, it's like saying, "Why not be generous if the cost is almost nothing?"
+
+```js
+let a = 10;
+let b = a; // Copy the value of 'a' into 'b'
+b = 20; // Changing 'b' doesn't affect 'a'
+console.log(a); // 10
+console.log(b); // 20
+```
+
+## **Pass By Reference**
+
+For non-primitive data types (`array`, `object`), variables store a **reference** to the memory location of the object, not the object itself. The cost of copying these is large, so instead, we **pass by reference**.
+
+Objects and arrays are stored in the **heap**, a larger memory pool, because they can grow dynamically and hold more data.
+
+```js
+let obj1 = { name: "Alice" };
+let obj2 = obj1; // Both reference the same object
+obj2.name = "Bob"; // Changing obj2 affects obj1
+console.log(obj1.name); // "Bob"
+```
+
+---
+
+Now, how does this relate to `useState` in React? Let's dive in.
+
+## **React Embraces Immutability**
+
+### **What is immutability?**
+
+Immutability means **data cannot be changed directly**. Instead of modifying the original object or value, you create a **new version** with the desired changes.
+
+### **How React Works in Terms of Updates**
+
+- Each React **component** is like a node in the **virtual DOM tree**.
+- React re-renders a component **only if it detects a change** in:
+  - **Props**: Data passed down from parent components.
+  - **State**: Internal data managed within the component.
+- React relies on **reference comparison** (_shallow comparison_):
+  - **Primitives:** Directly compare values (e.g., `42 !== 43`).
+  - **Objects/Arrays:** Compare references (e.g., `prevObj !== nextObj`).
+
+```js
+const [user, setUser] = useState({ name: "Alice" });
+
+user.name = "Bob"; // Mutate the original object
+setUser(user); // React doesn't detect a change
+```
+
+React **doesn't detect the change** because:
+
+- **Shallow comparison of references:**
+  React checks if the `user` reference has changed.
+  Since the reference is the same, React assumes no change and skips the re-render.
+
+```jsx
+prevUser === nextUser; // true, because you didn't create a new object
+```
+
+### **How to Ensure React Detects Changes**
+
+To signal a change, create a new object with updated values:
+
+```jsx
+setUser({ ...user, name: "Bob" }); // Create a new object
+prevUser !== nextUser; // true, React detects the change and re-renders
+```
+
+### **Why Immutability is Necessary**
+
+- React **listens for reference changes**, not deep changes inside the object.
+- Direct mutation hides the change from React because:
+  - The reference (`user`) stays the same.
+  - React doesn’t do a deep comparison (too slow for performance).
+- **"Copy + Update" = Immutability**: Always create a fresh version of the data instead of modifying the original.
+- **React's Optimized Listening**: React isn't spying on every field inside your objects. It listens to the object reference itself.
+
+For **primitive data types**, even a shallow comparison catches the change since it directly compares values.
+
+---
+
+### **Each Component Has Its Own State Reference**
+
+Every instance of a component gets its **own** separate state with its own reference. This means they **work independently**.
+
+## **Example: Managing State in a List**
+
+```jsx
+import { useState } from "react";
+
+function List() {
+  const [list, setList] = useState(["john", "mary", "kate"]);
+  const [name, setName] = useState("");
+
+  const addName = () => {
+    // Both of these will trigger a re-render: value change and reference change
+    setList([...list, name]);
+    setName("");
+  };
+
+  return (
+    <div>
+      <ul>
+        {list.map((name) => (
+          <li key={name} className="text-red-400">
+            {name}
+          </li>
+        ))}
+      </ul>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <button onClick={addName}>Add Name</button>
+    </div>
+  );
+}
+
+function App() {
+  return <List />;
+}
+
+export default App;
+```
+
+React listens to **both** state changes (`list` and `name`), but it will re-render **once** because React batches state updates.
+
+```js
+setList([...list, name]); // Reference change: Create a new list with added name
+setName(""); // Clears the input field
+```
